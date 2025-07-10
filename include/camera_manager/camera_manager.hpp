@@ -25,21 +25,13 @@
 #include "robotic_platform_msgs/srv/save_camera_data.hpp"
 
 #include "algorithm_client/algo_cli.hpp"
-#include "algorithm_client/fake_algo_cli.hpp"
+
+#include "camera_id.hpp"
 
 using namespace std::chrono_literals;
 
 using std::placeholders::_1;
 using std::placeholders::_2;
-using std::placeholders::_3;
-
-enum CameraId: uint8_t
-{
-  LEFT = 1,
-  RIGHT = 2,
-
-  LAST // Caution: LAST should not be used
-};
 
 class CameraManager : public rclcpp::Node
 {
@@ -77,21 +69,35 @@ public:
     std::shared_ptr<SaveCameraData::Response> response);
 
   template <typename T>
+  std::shared_ptr<T> get_data_copy(
+    std::deque<typename T::SharedPtr>& buf,
+    std::mutex& mutex,
+    const CameraId id,
+    const rclcpp::Time target_time) const;
+
+  template <typename T>
   bool save_cam_data(
     std::deque<typename T::SharedPtr>& buf, 
     std::mutex& mutex, 
     const CameraId id, 
     const rclcpp::Time target_time,
     typename rclcpp::Publisher<T>::SharedPtr pub) const;
-  
+
   template <typename T>
-  typename std::deque<typename T::SharedPtr>::reverse_iterator search_data(
+  bool save_cam_data(
+    typename T::SharedPtr data, 
+    const CameraId id, 
+    typename rclcpp::Publisher<T>::SharedPtr pub) const;
+
+  template <typename T>
+  typename std::deque<typename T::SharedPtr>::const_reverse_iterator search_data(
     std::deque<typename T::SharedPtr>& buf, 
     const rclcpp::Time& time) const;
 
 private:
   bool sim_;
-
+  size_t buf_max_size_;
+  
   std::mutex mutex_;
   std::shared_ptr<AlgoCli> algo_cli_node_;
 
@@ -100,8 +106,6 @@ private:
 
   std::unordered_map<CameraId, std::string> image_topic_;
   std::unordered_map<CameraId, std::string> pc_topic_;
-
-  size_t buf_max_size_;
 
   std::unordered_map<CameraId, std::deque<Image::SharedPtr>> image_buf_;
   std::unordered_map<CameraId, std::deque<PointCloud2::SharedPtr>> pc_buf_;

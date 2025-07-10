@@ -40,10 +40,7 @@ CameraManager::CameraManager(
     image_topic_[camera_id] = image_topic_tmp[i];
     pc_topic_[camera_id] = pc_topic_tmp[i];
   }
-  
-  // if (sim_)
-  //   algo_cli_node_ = std::make_shared<FakeAlgoCli>();
-  // else
+
   algo_cli_node_ = std::make_shared<AlgoCli>(options);
   exec->add_node(algo_cli_node_->get_node_base_interface());
 
@@ -51,7 +48,7 @@ CameraManager::CameraManager(
   pc_sub_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   srv_ser_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-  status_timer_ = this->create_wall_timer(200ms, std::bind(&CameraManager::pub_status_cb, this));
+  status_timer_ = create_wall_timer(200ms, std::bind(&CameraManager::pub_status_cb, this));
 
   rclcpp::SubscriptionOptions image_sub_options;
   image_sub_options.callback_group = image_sub_cbg_;
@@ -122,11 +119,11 @@ void CameraManager::pub_status_cb(void)
   // TODO: publish server status
 
   // FIXME: publish image for debugging only!!!
-  std::lock_guard<std::mutex> lock(image_mutexes_[CameraId::LEFT]);
-  if (image_buf_[CameraId::LEFT].empty())
+  std::lock_guard<std::mutex> lock(image_mutexes_[CameraId::ONE]);
+  if (image_buf_[CameraId::ONE].empty())
     return;
   
-  status_pub_->publish(*image_buf_[CameraId::LEFT].back());
+  status_pub_->publish(*image_buf_[CameraId::ONE].back());
 }
 
 void CameraManager::image_recv_cb(const Image::SharedPtr msg, const CameraId id)
@@ -140,7 +137,7 @@ void CameraManager::image_recv_cb(const Image::SharedPtr msg, const CameraId id)
     buf.pop_front();
   
   RCLCPP_DEBUG(get_logger(), "Image received! %s <Size: %ld>", 
-    id == CameraId::LEFT ? "left" : "right", 
+    id == CameraId::ONE ? "left" : "right", 
     buf.size());
 }
 
@@ -155,7 +152,7 @@ void CameraManager::pc_recv_cb(const PointCloud2::SharedPtr msg, const CameraId 
     buf.pop_front();
 
   RCLCPP_DEBUG(get_logger(), "Pointcloud received! %s <Size: %ld>", 
-    id == CameraId::LEFT ? "left" : "right", 
+    id == CameraId::ONE ? "left" : "right", 
     buf.size());
 }
 
@@ -163,25 +160,36 @@ void CameraManager::get_obj_pose_tri_cb(
   const std::shared_ptr<GetObjectPoseTrigger::Request> request, 
   std::shared_ptr<GetObjectPoseTrigger::Response> response)
 {
+  if (request->camera_id < CameraId::ONE || request->camera_id >= CameraId::LAST)
+    return;
+
   const CameraId id = static_cast<CameraId>(request->camera_id);
-  
-  std::unique_lock<std::mutex> image_lock(image_mutexes_[id], std::defer_lock);
-  std::unique_lock<std::mutex> pc_lock(pc_mutexes_[id], std::defer_lock);
 
   auto param_msg = std::make_shared<LocalizationParam>();
   param_msg->target_object_id = request->target_object_id;
 
   auto detect_result_msg = std::make_shared<DetectionResult>();
 
-  image_lock.lock();
-  auto image_copy = std::make_shared<Image>(*image_buf_[id].back());
-  image_lock.unlock();
+  const rclcpp::Time curr_time = get_clock()->now();
 
-  pc_lock.lock();
-  auto pc_copy = std::make_shared<PointCloud2>(*pc_buf_[id].back());
-  pc_lock.unlock();
+  auto image_copy = get_data_copy<Image>(image_buf_[id], image_mutexes_[id], id, curr_time);
+  auto pc_copy = get_data_copy<PointCloud2>(pc_buf_[id], pc_mutexes_[id], id, curr_time);
 
-  algo_cli_node_->get_obj_pose(image_copy, pc_copy, param_msg, detect_result_msg);
+  bool success{false};
+  success = algo_cli_node_->get_obj_pose(image_copy, pc_copy, param_msg, detect_result_msg);
+  if (!success)
+  {
+    RCLCPP_ERROR(get_logger(), "algo_cli_node_->get_obj_pose failed");
+    return;
+  }
+
+  success = save_cam_data<Image>(image_copy, id, save_image_pub_) &&
+            save_cam_data<PointCloud2>(pc_copy, id, save_pc_pub_);
+
+  if (!success)
+  {
+    RCLCPP_ERROR(get_logger(), "Save camera data failed but continue to process");
+  }
 
   RCLCPP_INFO(get_logger(), "return pose size: %ld", detect_result_msg->detected_objects.size());
   response->success = true;
@@ -191,31 +199,38 @@ void CameraManager::get_slot_state_tri_cb(
   const std::shared_ptr<GetSlotStateTrigger::Request> request, 
   std::shared_ptr<GetSlotStateTrigger::Response> response)
 {
-  if (request->camera_id < CameraId::LEFT || request->camera_id >= CameraId::LAST)
+  if (request->camera_id < CameraId::ONE || request->camera_id >= CameraId::LAST)
     return;
 
   const CameraId id = static_cast<CameraId>(request->camera_id);
-  
-  std::unique_lock<std::mutex> image_lock(image_mutexes_[id], std::defer_lock);
-  std::unique_lock<std::mutex> pc_lock(pc_mutexes_[id], std::defer_lock);
 
   auto param_msg = std::make_shared<LocalizationParam>();
   param_msg->target_object_id = request->target_object_id;
 
   auto qty_msg = std::make_shared<Int8>();
 
-  image_lock.lock();
-  auto image_copy = std::make_shared<Image>(*image_buf_[id].back());
-  image_lock.unlock();
+  const rclcpp::Time curr_time = get_clock()->now();
 
-  pc_lock.lock();
-  auto pc_copy = std::make_shared<PointCloud2>(*pc_buf_[id].back());
-  pc_lock.unlock();
+  auto image_copy = get_data_copy<Image>(image_buf_[id], image_mutexes_[id], id, curr_time);
+  auto pc_copy = get_data_copy<PointCloud2>(pc_buf_[id], pc_mutexes_[id], id, curr_time);
 
-  algo_cli_node_->get_slot_state(image_copy, pc_copy, param_msg, qty_msg);
+  bool success{false};
+  success = algo_cli_node_->get_slot_state(image_copy, pc_copy, param_msg, qty_msg);
+  if (!success)
+  {
+    RCLCPP_ERROR(get_logger(), "algo_cli_node_->get_slot_state failed");
+    return;
+  }
+
+  success = save_cam_data<Image>(image_copy, id, save_image_pub_) &&
+            save_cam_data<PointCloud2>(pc_copy, id, save_pc_pub_);
+
+  if (!success)
+  {
+    RCLCPP_ERROR(get_logger(), "Save camera data failed but continue to process");
+  }
 
   RCLCPP_INFO(get_logger(), "replenish quantity: %d", qty_msg->data);
-
   response->success = true;
 }
 
@@ -270,6 +285,34 @@ void CameraManager::save_cam_data_cb(
 }
 
 template <typename T>
+std::shared_ptr<T> CameraManager::get_data_copy(
+  std::deque<typename T::SharedPtr>& buf,
+  std::mutex& mutex,
+  const CameraId id,
+  const rclcpp::Time target_time) const
+{
+  std::lock_guard<std::mutex> lock(mutex);
+
+  if (buf.empty()) 
+  {
+    RCLCPP_ERROR(get_logger(), "Buffer for Camera %d is empty. No data available.", id);
+    return nullptr;
+  }
+
+  auto target_it = search_data<T>(buf, target_time);
+  if (target_it == buf.crend()) 
+  {
+    // This case should not be happened
+    RCLCPP_WARN(get_logger(), "No image found for camera %d at target time", id);
+    return nullptr;
+  }
+
+  auto copy = std::make_shared<T>(**target_it);
+
+  return copy;
+}
+
+template <typename T>
 bool CameraManager::save_cam_data(
   std::deque<typename T::SharedPtr>& buf,
   std::mutex& mutex,
@@ -286,7 +329,7 @@ bool CameraManager::save_cam_data(
   }
     
   auto target_it = search_data<T>(buf, target_time);
-  if (target_it == buf.rend()) 
+  if (target_it == buf.crend()) 
   {
     RCLCPP_WARN(get_logger(), "No image found for camera %d at target time", id);
     return false;
@@ -297,14 +340,31 @@ bool CameraManager::save_cam_data(
     RCLCPP_ERROR(get_logger(), "Publisher not initialized!");
     return false;
   }
-  pub->publish(**target_it);
+  pub->publish(std::move(**target_it));
 
-  RCLCPP_INFO(get_logger(), "done");
+  RCLCPP_INFO(get_logger(), "Published data for camera %d at time %f", id, target_time.seconds());
   return true;
 }
 
 template <typename T>
-typename std::deque<typename T::SharedPtr>::reverse_iterator CameraManager::search_data(
+bool CameraManager::save_cam_data(
+  typename T::SharedPtr msg, 
+  const CameraId id, 
+  typename rclcpp::Publisher<T>::SharedPtr pub) const
+{
+  if (!pub) 
+  {
+    RCLCPP_ERROR(get_logger(), "Publisher not initialized!");
+    return false;
+  }
+  pub->publish(std::move(*msg));
+
+  RCLCPP_INFO(get_logger(), "Published data for camera %d at time %d", id, msg->header.stamp.sec);
+  return true;
+}
+
+template <typename T>
+typename std::deque<typename T::SharedPtr>::const_reverse_iterator CameraManager::search_data(
   std::deque<typename T::SharedPtr>& buf,
   const rclcpp::Time& target_time) const
 {
@@ -312,12 +372,12 @@ typename std::deque<typename T::SharedPtr>::reverse_iterator CameraManager::sear
     return rclcpp::Time(data->header.stamp) < time;
   };
 
-  auto it = std::lower_bound(buf.rbegin(), buf.rend(), target_time, comp_func);
+  auto it = std::lower_bound(buf.crbegin(), buf.crend(), target_time, comp_func);
 
-  if (it == buf.rbegin() || it == buf.rend())
+  if (it == buf.crbegin() || it == buf.crend())
   {
     RCLCPP_INFO(get_logger(), "Save the lastest data");
-    return buf.rbegin();
+    return buf.crbegin();
   }
   
   // Compare with previous element to find the closest

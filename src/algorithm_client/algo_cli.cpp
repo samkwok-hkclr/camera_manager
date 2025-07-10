@@ -80,15 +80,16 @@ bool AlgoCli::get_obj_pose(
   request->image = std::move(*image);
   request->pointcloud = std::move(*pc);
 
-  auto start_time = std::chrono::system_clock::now();
+  auto start_time = get_clock()->now();
 
   auto future = get_obj_pose_cli_->async_send_request(request);
   std::future_status status = future.wait_for(std::chrono::seconds(30));
 
-  auto end_time = std::chrono::system_clock::now();
+  auto end_time = get_clock()->now();
 
-  std::chrono::duration<double> elapsed_seconds = end_time - start_time;
-  RCLCPP_INFO(get_logger(), "Client side total time for request to SensingServer %.2fs", elapsed_seconds.count());
+  rclcpp::Duration elapsed_seconds = end_time - start_time; 
+  RCLCPP_INFO(get_logger(), "Client side total time for request to SensingServer %.4fs", 
+    elapsed_seconds.seconds());
 
   if (status != std::future_status::ready)
   {
@@ -138,15 +139,16 @@ bool AlgoCli::get_slot_state(
   request->image = std::move(*image);
   request->pointcloud = std::move(*pc);
 
-  auto start_time = std::chrono::system_clock::now();
+  auto start_time = get_clock()->now();
 
   auto future = get_slot_state_cli_->async_send_request(request);
   std::future_status status = future.wait_for(std::chrono::seconds(30));
 
-  auto end_time = std::chrono::system_clock::now();
+  auto end_time = get_clock()->now();
 
-  std::chrono::duration<double> elapsed_seconds = start_time - end_time;
-  RCLCPP_INFO(get_logger(), "Client side total time for request to SensingServer %fs", elapsed_seconds.count());
+  rclcpp::Duration elapsed_seconds = start_time - end_time;
+  RCLCPP_INFO(get_logger(), "Client side total time for request to SensingServer %.4fs", 
+    elapsed_seconds.seconds());
 
   if (status != std::future_status::ready)
   {
