@@ -77,8 +77,8 @@ bool AlgoCli::get_obj_pose(
   // request->detect_bin_direction_flag = 2; // FIXME
   // request->detect_object_type_flag = 3; // FIXME
   // request->bin_type = 4; // FIXME
-  request->image = std::move(*image);
-  request->pointcloud = std::move(*pc);
+  request->image = *image;
+  request->pointcloud = *pc;
 
   auto start_time = get_clock()->now();
 
@@ -136,8 +136,8 @@ bool AlgoCli::get_slot_state(
   auto request = std::make_shared<GetSlotState::Request>();
 
   request->target_object_id = object_id; 
-  request->image = std::move(*image);
-  request->pointcloud = std::move(*pc);
+  request->image = *image;
+  request->pointcloud = *pc;
 
   auto start_time = get_clock()->now();
 

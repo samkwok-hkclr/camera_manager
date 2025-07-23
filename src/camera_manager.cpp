@@ -249,14 +249,14 @@ void CameraManager::save_cam_data_cb(
 
   switch (request->type)
   {
-  case 1:
+  case CameraDataType::IMAGE:
     /* code */
     success = save_helper(image_buf_[id], image_mutexes_[id], save_image_pub_);
     break;
-  case 2:
+  case CameraDataType::POINTCLOUD:
     success = save_helper(pc_buf_[id], pc_mutexes_[id], save_pc_pub_);
     break;  
-  case 3:
+  case CameraDataType::BOTH:
     // TODO: how to handle partial success???
     success = save_helper(image_buf_[id], image_mutexes_[id], save_image_pub_);
     success &= save_helper(pc_buf_[id], pc_mutexes_[id], save_pc_pub_);
@@ -306,8 +306,13 @@ std::shared_ptr<T> CameraManager::get_data_copy(
     RCLCPP_WARN(get_logger(), "No image found for camera %d at target time", id);
     return nullptr;
   }
+  if (target_it == buf.crbegin()) 
+  {
+    RCLCPP_DEBUG(get_logger(), "target is the lastest data");
+  }
 
-  auto copy = std::make_shared<T>(**target_it);
+  std::shared_ptr<T> copy = std::make_shared<T>(**target_it);
+  RCLCPP_DEBUG(get_logger(), "copy stamp second: %d", copy->header.stamp.sec);
 
   return copy;
 }
@@ -340,15 +345,15 @@ bool CameraManager::save_cam_data(
     RCLCPP_ERROR(get_logger(), "Publisher not initialized!");
     return false;
   }
-  pub->publish(std::move(**target_it));
+  pub->publish(**target_it);
 
-  RCLCPP_INFO(get_logger(), "Published data for camera %d at time %f", id, target_time.seconds());
+  RCLCPP_DEBUG(get_logger(), "Published data for camera %d at time %f", id, target_time.seconds());
   return true;
 }
 
 template <typename T>
 bool CameraManager::save_cam_data(
-  typename T::SharedPtr msg, 
+  typename T::SharedPtr& msg, 
   const CameraId id, 
   typename rclcpp::Publisher<T>::SharedPtr pub) const
 {
@@ -357,9 +362,9 @@ bool CameraManager::save_cam_data(
     RCLCPP_ERROR(get_logger(), "Publisher not initialized!");
     return false;
   }
-  pub->publish(std::move(*msg));
+  pub->publish(*msg);
 
-  RCLCPP_INFO(get_logger(), "Published data for camera %d at time %d", id, msg->header.stamp.sec);
+  RCLCPP_DEBUG(get_logger(), "Published data for camera %d at time %d", id, msg->header.stamp.sec);
   return true;
 }
 

@@ -1,5 +1,5 @@
-#ifndef VISION_SERVER_HPP__
-#define VISION_SERVER_HPP__
+#ifndef CAMERA_MANAGER_HPP__
+#define CAMERA_MANAGER_HPP__
 
 #pragma once
 
@@ -17,6 +17,7 @@
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 
+#include "robotic_platform_msgs/msg/camera_data_type.hpp"
 #include "robotic_platform_msgs/msg/detection_result.hpp"
 #include "robotic_platform_msgs/msg/localization_param.hpp"
 
@@ -40,6 +41,7 @@ class CameraManager : public rclcpp::Node
   using Image = sensor_msgs::msg::Image;
   using PointCloud2 = sensor_msgs::msg::PointCloud2;
 
+  using CameraDataType = robotic_platform_msgs::msg::CameraDataType;
   using DetectionResult = robotic_platform_msgs::msg::DetectionResult;
   using LocalizationParam = robotic_platform_msgs::msg::LocalizationParam;
 
@@ -85,7 +87,7 @@ public:
 
   template <typename T>
   bool save_cam_data(
-    typename T::SharedPtr data, 
+    typename T::SharedPtr& data, 
     const CameraId id, 
     typename rclcpp::Publisher<T>::SharedPtr pub) const;
 
@@ -131,4 +133,4 @@ private:
   rclcpp::Service<SaveCameraData>::SharedPtr save_cam_data_srv_;
 };
 
-#endif // VISION_SERVER_HPP__
+#endif // CAMERA_MANAGER_HPP__

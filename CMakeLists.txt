@@ -21,6 +21,10 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(moveit_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
 find_package(robot_controller_msgs REQUIRED)
 find_package(robotic_platform_msgs REQUIRED)
 
@@ -32,7 +36,7 @@ add_executable(camera_manager
   src/main.cpp
   src/camera_manager.cpp
   src/algorithm_client/algo_cli.cpp
-  # src//algorithm_client/fake_algo_cli.cpp
+  src/data_saver.cpp
 )
 target_include_directories(camera_manager PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -43,6 +47,11 @@ ament_target_dependencies(camera_manager
   sensor_msgs
   moveit_msgs
 
+  cv_bridge
+  OpenCV
+  pcl_conversions
+  PCL
+  
   robot_controller_msgs
   robotic_platform_msgs
 )
@@ -51,12 +60,6 @@ target_compile_features(camera_manager PUBLIC c_std_99 cxx_std_17)  # Require C9
 install(TARGETS 
   camera_manager
   DESTINATION lib/${PROJECT_NAME}
-)
-
-install(DIRECTORY
-  launch
-  params
-  DESTINATION share/${PROJECT_NAME}/
 )
 
 if(BUILD_TESTING)
