@@ -167,6 +167,7 @@ void CameraManager::get_obj_pose_tri_cb(
 
   auto param_msg = std::make_shared<LocalizationParam>();
   param_msg->target_object_id = request->target_object_id;
+  RCLCPP_WARN(get_logger(), "target_object_id: %d", request->target_object_id);
 
   auto detect_result_msg = std::make_shared<DetectionResult>();
 
@@ -181,6 +182,14 @@ void CameraManager::get_obj_pose_tri_cb(
   {
     RCLCPP_ERROR(get_logger(), "algo_cli_node_->get_obj_pose failed");
     return;
+  }
+
+  for (const auto& x : detect_result_msg->detected_objects)
+  {
+    ObjectPose msg;
+    msg.object_id = request->target_object_id;
+    msg.pose = x.camera_pose;
+    response->object_poses.emplace_back(std::move(msg));
   }
 
   success = save_cam_data<Image>(image_copy, id, save_image_pub_) &&

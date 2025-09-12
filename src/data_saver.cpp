@@ -56,7 +56,7 @@ std::string DataSaver::get_save_path(void)
   
   if (base_path.empty())
   {
-    return "";
+    return "/" + save_folder_name_;
   }
 
   std::string save_path;
@@ -211,12 +211,13 @@ void DataSaver::image_save_cb(const Image::SharedPtr msg)
   }
 
   std::string date_folder = save_path + "/" + get_date();
-  std::string filename = date_folder + "/image_" + get_time() + ".png";
+  std::string filename = date_folder + "/img_" + get_time() + ".png";
 
   try
   {
     RCLCPP_WARN(this->get_logger(), "ROS msg encoding: %s", msg->encoding.c_str());
     // FIXME: why the source is rgb8 but cv_bridge requires bgr8
+    // cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding.c_str());
     cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");
 
     if (!cv_ptr)
@@ -260,7 +261,8 @@ void DataSaver::pc_save_cb(const PointCloud2::SharedPtr msg)
   }
 
   std::string date_folder = save_path + "/" + get_date();
-  std::string filename = date_folder + "/pc_" + get_time() + ".pcd";
+  // std::string filename = date_folder + "/pc_" + get_time() + ".pcd";
+  std::string filename = date_folder + "/ply_" + get_time() + ".ply";
 
   try
   {
@@ -269,7 +271,8 @@ void DataSaver::pc_save_cb(const PointCloud2::SharedPtr msg)
     pcl_conversions::toPCL(*msg, pcl_pc2);
     pcl::fromPCLPointCloud2(pcl_pc2, *cloud);
 
-    if (pcl::io::savePCDFileASCII(filename, *cloud) == 0)
+    // if (pcl::io::savePCDFileASCII(filename, *cloud) == 0)
+    if (pcl::io::savePLYFileASCII(filename, *cloud) == 0)
     {
       RCLCPP_WARN(this->get_logger(), "Saved point cloud to: %s", filename.c_str());
     }

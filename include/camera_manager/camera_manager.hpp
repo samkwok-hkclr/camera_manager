@@ -20,6 +20,7 @@
 #include "robotic_platform_msgs/msg/camera_data_type.hpp"
 #include "robotic_platform_msgs/msg/detection_result.hpp"
 #include "robotic_platform_msgs/msg/localization_param.hpp"
+#include "robotic_platform_msgs/msg/object_pose.hpp"
 
 #include "robotic_platform_msgs/srv/get_object_pose_trigger.hpp"
 #include "robotic_platform_msgs/srv/get_slot_state_trigger.hpp"
@@ -44,6 +45,7 @@ class CameraManager : public rclcpp::Node
   using CameraDataType = robotic_platform_msgs::msg::CameraDataType;
   using DetectionResult = robotic_platform_msgs::msg::DetectionResult;
   using LocalizationParam = robotic_platform_msgs::msg::LocalizationParam;
+  using ObjectPose = robotic_platform_msgs::msg::ObjectPose;
 
   using GetObjectPoseTrigger = robotic_platform_msgs::srv::GetObjectPoseTrigger;
   using GetSlotStateTrigger = robotic_platform_msgs::srv::GetSlotStateTrigger;

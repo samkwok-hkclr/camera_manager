@@ -4,12 +4,12 @@ AlgoCli::AlgoCli(
   const rclcpp::NodeOptions& options)
 : Node("algorithm_client", options)
 {
-  declare_parameter<int>("algo_id", 0);
+  declare_parameter<int>("algo_id", 44);
   get_parameter("algo_id", algo_id_);
 
   cli_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-  init_timer_ = create_wall_timer(std::chrono::seconds(1), std::bind(&AlgoCli::init_algo, this));
+  // init_timer_ = create_wall_timer(std::chrono::seconds(1), std::bind(&AlgoCli::init_algo, this));
 
   init_algo_cli_ = create_client<InitAlgo>(
     "init_algo",
@@ -64,7 +64,7 @@ bool AlgoCli::get_obj_pose(
   const robotic_platform_msgs::msg::LocalizationParam::SharedPtr param, 
   robotic_platform_msgs::msg::DetectionResult::SharedPtr detected_result)
 {
-  const uint8_t object_id = param->target_object_id;
+  const int32_t object_id = param->target_object_id;
   RCLCPP_INFO(get_logger(), "object_id : %d", object_id);
   
   if (!cli_wait_for_srv<GetObjectPose>(get_obj_pose_cli_, __FUNCTION__))
@@ -110,7 +110,7 @@ bool AlgoCli::get_obj_pose(
     DetectedObject obj;
 
     obj.camera_pose = object_pose.pose;
-    obj.object_id = object_pose.id;
+    obj.object_id = object_pose.object_id;
     obj.size = object_pose.size;
     obj.gripper = object_pose.gripper;
 
@@ -127,7 +127,7 @@ bool AlgoCli::get_slot_state(
   const robotic_platform_msgs::msg::LocalizationParam::SharedPtr param, 
   Int8::SharedPtr refill_qty)
 {
-  const uint8_t object_id = param->target_object_id;
+  const int32_t object_id = param->target_object_id;
   RCLCPP_INFO(get_logger(), "object_id : %d", object_id);
   
   if (!cli_wait_for_srv<GetSlotState>(get_slot_state_cli_, __FUNCTION__))
