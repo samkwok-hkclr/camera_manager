@@ -116,6 +116,9 @@ CameraManager::~CameraManager()
 
 void CameraManager::pub_status_cb(void)
 {
+  if (!status_pub_ || status_pub_->get_subscription_count() == 0)
+    return;
+
   // TODO: publish server status
 
   // FIXME: publish image for debugging only!!!
@@ -335,6 +338,9 @@ bool CameraManager::save_cam_data(
   const rclcpp::Time target_time,
   typename rclcpp::Publisher<T>::SharedPtr pub) const
 {
+  if (!pub || pub->get_subscription_count() == 0)
+    return false;
+  
   std::lock_guard<std::mutex> lock(mutex);
 
   if (buf.empty())
@@ -367,7 +373,7 @@ bool CameraManager::save_cam_data(
   const CameraId id, 
   typename rclcpp::Publisher<T>::SharedPtr pub) const
 {
-  if (!pub) 
+  if (!pub || pub->get_subscription_count() == 0) 
   {
     RCLCPP_ERROR(get_logger(), "Publisher not initialized!");
     return false;
