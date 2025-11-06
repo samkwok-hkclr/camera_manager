@@ -5,7 +5,7 @@ CameraManager::CameraManager(
   std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> exec)
 : Node("camera_manager", options)
 {
-  declare_parameter<bool>("sim", true);
+  declare_parameter<bool>("sim", false);
   declare_parameter<int64_t>("buf_max_size", 100);
   declare_parameter<std::vector<int>>("camera_id");
   declare_parameter<std::vector<std::string>>("image_topic");
@@ -44,11 +44,11 @@ CameraManager::CameraManager(
   algo_cli_node_ = std::make_shared<AlgoCli>(options);
   exec->add_node(algo_cli_node_->get_node_base_interface());
 
-  image_sub_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  pc_sub_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  image_sub_cbg_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  pc_sub_cbg_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   srv_ser_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-  status_timer_ = create_wall_timer(200ms, std::bind(&CameraManager::pub_status_cb, this));
+  status_timer_ = create_wall_timer(500ms, std::bind(&CameraManager::pub_status_cb, this));
 
   rclcpp::SubscriptionOptions image_sub_options;
   image_sub_options.callback_group = image_sub_cbg_;
@@ -68,7 +68,7 @@ CameraManager::CameraManager(
       image_cb_[cam_id] = std::bind(&CameraManager::image_recv_cb, this, _1, cam_id);
       image_sub_[cam_id] = create_subscription<Image>(
         image_topic_[cam_id], 
-        1000, 
+        rclcpp::QoS(rclcpp::KeepLast(10)), 
         image_cb_[cam_id],
         image_sub_options);
 
@@ -80,7 +80,7 @@ CameraManager::CameraManager(
       pc_cb_[cam_id] = std::bind(&CameraManager::pc_recv_cb, this, _1, cam_id);
       pc_sub_[cam_id] = create_subscription<PointCloud2>(
         pc_topic_[cam_id], 
-        1000, 
+        rclcpp::QoS(rclcpp::KeepLast(10)), 
         pc_cb_[cam_id],
         pc_sub_options);
 
@@ -120,6 +120,7 @@ void CameraManager::pub_status_cb(void)
 
   // FIXME: publish image for debugging only!!!
   std::lock_guard<std::mutex> lock(image_mutexes_[CameraId::ONE]);
+  
   if (image_buf_[CameraId::ONE].empty())
     return;
   

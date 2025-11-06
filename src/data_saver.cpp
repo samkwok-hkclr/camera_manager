@@ -218,7 +218,8 @@ void DataSaver::image_save_cb(const Image::SharedPtr msg)
     RCLCPP_WARN(this->get_logger(), "ROS msg encoding: %s", msg->encoding.c_str());
     // FIXME: why the source is rgb8 but cv_bridge requires bgr8
     // cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding.c_str());
-    cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");
+    // cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");
+    cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding.c_str());
 
     if (!cv_ptr)
     {
