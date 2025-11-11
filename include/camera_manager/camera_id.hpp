@@ -9,9 +9,6 @@ enum CameraId: uint8_t
 {
   ONE = 1,
   TWO = 2,
-  THREE = 3,
-  FOUR = 4,
-  FIVE = 5,
 
   LAST // Caution: LAST should not be used!!!
 };

@@ -7,9 +7,9 @@ CameraManager::CameraManager(
 {
   declare_parameter<bool>("sim", false);
   declare_parameter<int64_t>("buf_max_size", 100);
-  declare_parameter<std::vector<int>>("camera_id");
-  declare_parameter<std::vector<std::string>>("image_topic");
-  declare_parameter<std::vector<std::string>>("pointcloud_topic");
+  declare_parameter<std::vector<int>>("camera_id", std::vector<int>{});
+  declare_parameter<std::vector<std::string>>("image_topic", std::vector<std::string>{});
+  declare_parameter<std::vector<std::string>>("pointcloud_topic", std::vector<std::string>{});
 
   get_parameter("sim", sim_);
   get_parameter("buf_max_size", buf_max_size_);
@@ -137,7 +137,7 @@ void CameraManager::image_recv_cb(const Image::SharedPtr msg, const CameraId id)
   if (buf_max_size_ > 0 && buf.size() > buf_max_size_) 
     buf.pop_front();
   
-  RCLCPP_DEBUG(get_logger(), "Image received! %s <Size: %ld>", 
+  RCLCPP_INFO_THROTTLE(get_logger(), *this->get_clock(), 60000, "Image received! %s <Size: %ld>", 
     id == CameraId::ONE ? "left" : "right", 
     buf.size());
 }
@@ -152,7 +152,7 @@ void CameraManager::pc_recv_cb(const PointCloud2::SharedPtr msg, const CameraId 
   if (buf_max_size_ > 0 && buf.size() > buf_max_size_) 
     buf.pop_front();
 
-  RCLCPP_DEBUG(get_logger(), "Pointcloud received! %s <Size: %ld>", 
+  RCLCPP_INFO_THROTTLE(get_logger(), *this->get_clock(), 60000, "Pointcloud received! %s <Size: %ld>", 
     id == CameraId::ONE ? "left" : "right", 
     buf.size());
 }
