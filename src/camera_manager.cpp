@@ -55,9 +55,9 @@ CameraManager::CameraManager(
   rclcpp::SubscriptionOptions pc_sub_options;
   pc_sub_options.callback_group = pc_sub_cbg_;
 
-  status_pub_ = create_publisher<Image>("/testing_image", 10); 
-  save_image_pub_ = create_publisher<Image>("/save_image", 10); 
-  save_pc_pub_ = create_publisher<PointCloud2>("/save_pointcloud", 10); 
+  status_pub_ = create_publisher<Image>("testing_image", 10); 
+  save_image_pub_ = create_publisher<Image>("save_image", 10); 
+  save_pc_pub_ = create_publisher<PointCloud2>("save_pointcloud", 10); 
 
   for (size_t i = 0; i < cam_id_tmp.size(); i++)
   {
@@ -68,7 +68,7 @@ CameraManager::CameraManager(
       image_cb_[cam_id] = std::bind(&CameraManager::image_recv_cb, this, _1, cam_id);
       image_sub_[cam_id] = create_subscription<Image>(
         image_topic_[cam_id], 
-        rclcpp::QoS(rclcpp::KeepLast(10)), 
+        rclcpp::QoS(rclcpp::KeepLast(100)), 
         image_cb_[cam_id],
         image_sub_options);
 
@@ -80,7 +80,7 @@ CameraManager::CameraManager(
       pc_cb_[cam_id] = std::bind(&CameraManager::pc_recv_cb, this, _1, cam_id);
       pc_sub_[cam_id] = create_subscription<PointCloud2>(
         pc_topic_[cam_id], 
-        rclcpp::QoS(rclcpp::KeepLast(10)), 
+        rclcpp::QoS(rclcpp::KeepLast(100)), 
         pc_cb_[cam_id],
         pc_sub_options);
 
@@ -180,6 +180,12 @@ void CameraManager::get_obj_pose_tri_cb(
   auto image_copy = get_data_copy<Image>(image_buf_[id], image_mutexes_[id], id, curr_time);
   auto pc_copy = get_data_copy<PointCloud2>(pc_buf_[id], pc_mutexes_[id], id, curr_time);
 
+  if (image_copy == nullptr || pc_copy == nullptr)
+  {
+    RCLCPP_ERROR(get_logger(), "image_copy or pc_copy is nullptr");
+    return;
+  }
+
   bool success{false};
   success = algo_cli_node_->get_obj_pose(image_copy, pc_copy, param_msg, detect_result_msg);
   if (!success)
@@ -212,7 +218,7 @@ void CameraManager::get_slot_state_tri_cb(
   const std::shared_ptr<GetSlotStateTrigger::Request> request, 
   std::shared_ptr<GetSlotStateTrigger::Response> response)
 {
-  if (request->camera_id < CameraId::ONE || request->camera_id >= CameraId::LAST)
+  if (request->camera_id < CameraId::ONE || request->camera_id > CameraId::TWO)
     return;
 
   const CameraId id = static_cast<CameraId>(request->camera_id);
@@ -226,6 +232,12 @@ void CameraManager::get_slot_state_tri_cb(
 
   auto image_copy = get_data_copy<Image>(image_buf_[id], image_mutexes_[id], id, curr_time);
   auto pc_copy = get_data_copy<PointCloud2>(pc_buf_[id], pc_mutexes_[id], id, curr_time);
+
+  if (image_copy == nullptr || pc_copy == nullptr)
+  {
+    RCLCPP_ERROR(get_logger(), "image_copy or pc_copy is nullptr");
+    return;
+  }
 
   bool success{false};
   success = algo_cli_node_->get_slot_state(image_copy, pc_copy, param_msg, qty_msg);
@@ -373,11 +385,17 @@ bool CameraManager::save_cam_data(
   const CameraId id, 
   typename rclcpp::Publisher<T>::SharedPtr pub) const
 {
-  if (!pub || pub->get_subscription_count() == 0) 
+  if (!pub) 
   {
     RCLCPP_ERROR(get_logger(), "Publisher not initialized!");
     return false;
   }
+  if (pub->get_subscription_count() == 0)
+  {
+    RCLCPP_ERROR(get_logger(), "Topic does not have subscription!");
+    return false;
+  }
+
   pub->publish(*msg);
 
   RCLCPP_DEBUG(get_logger(), "Published data for camera %d at time %d", id, msg->header.stamp.sec);
